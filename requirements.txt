@@ -1,0 +1,10 @@
+# scipy==1.7.3
+# scikit-image==0.19.3
+Pillow==9.5.0
+opencv-python==4.7.0.72
+six==1.16.0
+fastapi==0.111.0
+# tensorboardX==2.6
+Polygon3==3.0.9.1
+# shapely==2.0.1
+# pretrainedmodels==0.7.4

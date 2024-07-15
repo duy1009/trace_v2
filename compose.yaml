@@ -1,0 +1,8 @@
+services:
+  server:
+    image: duy1009/table-trace:1.0
+    build: 
+      context: .
+    command: sh -c "uvicorn main:app --port 8002 --reload --host 0.0.0.0"
+    ports:
+      - 8002:8002
