@@ -1,0 +1,11 @@
+{
+    "comment_1": "-------------training-related--------------",
+    "train_size": 640,
+    "data_path": "/home/hungdv/tcgroup/dataset/tabelSeg/wtw",
+    "train_sets": "train",
+    "mixratio": [1],
+    "comment_2": "-------------evalution-related-------------",
+    "eval_set" : "test",
+    "canvas_size": 640,
+    "thresholds": [0.3, 0.2]
+}

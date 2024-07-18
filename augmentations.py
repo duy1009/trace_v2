@@ -299,17 +299,29 @@ class TRACEAugmentation(object):
     def __init__(self, size=512, mean=(104, 117, 123)):
         self.mean = mean
         self.size = size
-        self.augment = Compose(
-            [
-                ConvertFromInts(),
-                ToAbsoluteCoords(),
-                PhotometricDistort(),
-                RandomPerspective(),
-                RandomResizeCrop(list(range(1024, self.size + 1, 32))),
-                ToPercentCoords(),
-                Resize(self.size),
-            ]
-        )
+        if size > 1024:
+            self.augment = Compose(
+                [
+                    ConvertFromInts(),
+                    ToAbsoluteCoords(),
+                    PhotometricDistort(),
+                    RandomPerspective(),
+                    RandomResizeCrop(list(range(1024, self.size + 1, 32))),
+                    ToPercentCoords(),
+                    Resize(self.size),
+                ]
+            )
+        else:
+            self.augment = Compose(
+                [
+                    ConvertFromInts(),
+                    ToAbsoluteCoords(),
+                    PhotometricDistort(),
+                    RandomPerspective(),
+                    ToPercentCoords(),
+                    Resize(self.size),
+                ]
+            )
 
     def __call__(self, img, boxes, labels, angles=None):
         return self.augment(img, boxes, labels, angles)

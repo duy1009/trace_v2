@@ -1,5 +1,5 @@
 import os
-import random
+import random, tqdm
 from collections import Iterable
 from xml.dom import minidom
 
@@ -21,11 +21,9 @@ class ParserTRACE:
         base_folder = os.path.join(root_path, dataset)
         base_folder = os.path.join(base_folder, phase)
         image_files, _, _ = file_utils.list_files(base_folder)
-
-        for img_file in image_files:
+        for img_file in tqdm.tqdm(image_files):
             basename, ext = os.path.splitext(os.path.basename(img_file))
-            gt_file = os.path.join(base_folder, f"{basename}.xml")
-
+            gt_file = os.path.join(base_folder,"xml", f"{basename}..xml")
             if os.path.exists(gt_file):
                 quads = []
                 lines = []

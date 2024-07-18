@@ -152,7 +152,7 @@ def train():
         num_workers=args.num_workers,
         shuffle=True,
         pin_memory=True,
-        generator=torch.Generator(device="cuda"),
+        generator=torch.Generator(device="cuda" if args.cuda else "cpu"),
     )
 
     # init summary
