@@ -231,7 +231,7 @@ def train():
         pred_img = out[0, :, :, :].cpu().data.numpy()
         if iteration % display_iter == 0:
             t1 = time.time()
-            print("iter " + repr(iteration) + " || loss: %.8f (Time : %.1f)" % (loss.sum().item(), (t1 - t0)))
+            print("iter " + repr(iteration) + " || loss: %.15f (Time : %.1f)" % (loss.sum().item(), (t1 - t0)))
             t0 = time.time()
 
             render_img = cv2.resize(orig_images.numpy().transpose((1, 2, 0)), (out_dim, out_dim))
