@@ -187,11 +187,15 @@ def train():
     best_score = 0
     display_iter = 10
     t0 = time.time()
+    epoch_loss = 0
     for iteration in range(args.start_iter, max_iter):
         if (not batch_iterator) or (iteration % epoch_size == 0):
             # create batch iterator
             batch_iterator = iter(data_loader)
             epoch += 1
+            print(f"[Epoch {epoch}]Loss sum:{epoch_loss}")
+            epoch_loss = 0
+
 
         if iteration in stepvalues:
             step_index += 1
@@ -226,6 +230,7 @@ def train():
         loss = criterion(out, gts, weights)
         loss.backward()
         optimizer.step()
+        epoch_loss+=loss.sum().item()
 
         # display
         pred_img = out[0, :, :, :].cpu().data.numpy()
