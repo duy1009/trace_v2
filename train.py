@@ -20,7 +20,7 @@ from torch.autograd import Variable
 import file_utils
 import imgproc
 from augmentations import TRACEAugmentation
-from loader import TRACE_Dataset
+from loader import TRACE_Dataset, TRACE_Dataset_wtw
 from loss import TRACELoss
 from model import TraceModel, TraceModel_v2
 from parse_config import parse_config_train
@@ -57,7 +57,7 @@ def str2bool(v):
 parser = argparse.ArgumentParser(description="TRACE Trainer")
 parser.add_argument("-c", "--config_file", type=str, required=False)
 parser.add_argument("--train_size", default=768, type=int, help="Image size for training")
-parser.add_argument("--batch_size", default=32, type=int, help="Batch size for training")
+parser.add_argument("--batch_size", default=2, type=int, help="Batch size for training")
 parser.add_argument("--resume", default=None, type=str, help="Resume from checkpoint")
 parser.add_argument("--num_workers", default=12, type=int, help="Number of workers used in dataloading")
 parser.add_argument("--max_iter", default=100000, type=int, help="Number of training iterations")
@@ -75,6 +75,7 @@ parser.add_argument("--mixratio", default=[1], help="Mixture ratio of datasaets"
 parser.add_argument("--eval_set", default=None, type=str, help="Evaluation dataset")
 parser.add_argument("--comment", default="write_comment_here", type=str, help="Tensorboard log comment")
 parser.add_argument("-v", "--version", default=0, type=int, help="0:50, 1:34")
+parser.add_argument("-wtw", "--is_wtw",  default=True, type=str2bool, help="config wtw dataset", required=True)
 args = parser.parse_args()
 
 # parse config file
@@ -133,15 +134,25 @@ def train():
     criterion = TRACELoss(neg_pos_ratio=3)
 
     transform = TRACEAugmentation(args.train_size, means)
-    print("Loading Training Dataset... {}".format(str(args.train_sets)))
-    dataset = TRACE_Dataset(
-        args.train_sets,
-        rootpath=args.data_path,
-        phase="train",
-        scale_down=scale_down,
-        transform=transform,
-        mixratio=args.mixratio,
-    )
+    print("Loading Training Dataset... {}/{}".format(str(args.data_path), str(args.train_sets)))
+    if args.is_wtw:
+        dataset = TRACE_Dataset_wtw(
+            args.train_sets,
+            rootpath=args.data_path,
+            phase="train",
+            scale_down=scale_down,
+            transform=transform,
+            mixratio=args.mixratio,
+        )
+    else:
+        dataset = TRACE_Dataset(
+            args.train_sets,
+            rootpath=args.data_path,
+            phase="train",
+            scale_down=scale_down,
+            transform=transform,
+            mixratio=args.mixratio,
+        )
     if args.eval:
         print("Evaluation Dataset... {}".format(str(args.eval_set)))
     print("Start training...")
@@ -224,7 +235,6 @@ def train():
         out = net(images)
         if isinstance(out, tuple):
             out = out[0]  # ignore feature map
-
         # back-propagation
         optimizer.zero_grad()
         loss = criterion(out, gts, weights)

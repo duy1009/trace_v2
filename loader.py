@@ -10,7 +10,7 @@ import torch
 import torch.utils.data as data
 
 import imgproc
-from parsers.xml_parser import ParserTRACE  # ours
+from parsers.xml_parser import ParserTRACE, ParserTRACE_wtw
 
 gaussian_map = np.zeros((201, 201), dtype=np.float32)
 gaussian_line = np.zeros((201, 201), dtype=np.float32)
@@ -277,3 +277,127 @@ class TRACE_Dataset(data.Dataset):
             torch.from_numpy(gt_image.astype(np.float32)),
             torch.from_numpy(gt_weight.astype(np.float32)),
         )
+
+
+class TRACE_Dataset_wtw(data.Dataset):
+    """OCR Dataset Object for TextAffinityField
+
+    input is image, target is annotation
+
+    Arguments:
+        rootpath (string): filepath to OCR folder
+        datasets (string): datasets name (paths to dataset are already defined in db_params.py)
+        phase (string): set 'test' or 'train' phase (default is 'train')
+        transform (callable, optional): transformation to perform on the input image
+        gt_transform (callable, optional): transformation to perform on the GT annotation
+    """
+
+    def __init__(
+        self,
+        datasets,
+        rootpath,
+        scale_down=2,
+        out_type="HEATMAP",
+        phase="train",
+        transform=None,
+        mixratio=[1],
+    ):
+        self.rootpath = rootpath
+        self.datasets = datasets
+        self.mixratio = mixratio
+        self.scale_down = scale_down
+        self.out_type = out_type
+        self.phase = phase
+        self.transform = transform
+        self.parsers = []
+        self.dataset_size = 0
+
+        for dataset in datasets.split(","):
+            parser = ParserTRACE_wtw(rootpath, dataset, phase)
+            self.dataset_size += parser.lenFiles()
+            self.parsers.append({"name": dataset, "num": parser.lenFiles(), "parser": parser})
+        print("Dataset size of Training Sets : {:d}".format(self.dataset_size))
+
+        cv2.setNumThreads(0)  # prevent deadlock caused by conflict with pytorch
+
+    def __len__(self):
+        return self.dataset_size
+
+    def __getitem__(self, index):
+        img, gt, weight = self.pull_item(index)
+        return img, gt, weight
+
+    def pull_item(self, index):
+        mix_rand = random.randrange(0, sum(self.mixratio))
+        parser_ind = 0
+        parser_ind_sum = self.mixratio[0]
+        while 1:
+            if mix_rand < parser_ind_sum:
+                break
+            parser_ind += 1
+            parser_ind_sum += self.mixratio[parser_ind]
+        parser = self.parsers[parser_ind]["parser"]
+
+        while 1:
+            try:
+                img_file, gt = parser.parseGT()
+                if isinstance(img_file, str):
+                    img = imgproc.loadImage(img_file)
+                else:
+                    img = img_file  # Some parser return image rather than image file name
+                height, width, channels = img.shape
+            except Exception as e:
+                print(e)
+                continue
+
+            if gt is None:
+                gt = []
+
+            gt, gt_lines = gt["quads"], gt["lines"]
+            gt = np.array(gt, dtype=np.float32).reshape(-1, 8)
+            break
+
+        # normalize GT coordinate
+        num_pt = int(gt.shape[1] / 2)
+        gt[:, : 2 * num_pt] /= [width, height] * num_pt
+
+        # Transformation
+        if self.transform is not None:
+            img, gt, gt_lines, _ = self.transform(img, gt, gt_lines)
+            width = height = self.transform.size
+
+        # Create TextAffinityField GT Map
+        gt_gathered = []
+        for attr, quad in zip(gt_lines, gt):
+            gt_gathered.append({"quad": quad, "line": attr})
+
+        # GT transform
+        width /= self.scale_down
+        height /= self.scale_down
+        gt_image, gt_weight = GTTransform(gt_gathered, width, height)
+        _, _, gt_ch = gt_image.shape
+        gt_weight = np.array([gt_weight] * gt_ch).transpose(1, 2, 0)
+
+        # Preprocessing for pre-trained model
+        img = imgproc.normalizeMeanVariance(img)
+
+        return (
+            torch.from_numpy(img.astype(np.float32)).permute(2, 0, 1),
+            torch.from_numpy(gt_image.astype(np.float32)),
+            torch.from_numpy(gt_weight.astype(np.float32)),
+        )
+
+if __name__ == "__main__":
+    from augmentations import TRACEAugmentation
+    means = (123, 117, 104)  # RGB order
+    transform = TRACEAugmentation(640, means)
+    ds = TRACE_Dataset_wtw(datasets="train",
+                           rootpath="/home/hungdv/tcgroup/dataset/tabelSeg/wtw/test_code_train",
+                           scale_down=2,
+                           out_type="HEATMAP",
+                           phase="train",
+                           transform=transform,
+                           mixratio=[1])
+    for i in ds:
+        img, gt, weight = i
+        print("[A]",torch.unique(weight))
