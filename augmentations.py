@@ -294,6 +294,26 @@ class PhotometricDistort(object):
         im[im < 0] = 0
         return im, boxes, labels, angles
 
+class RandomLightDirect(object):
+    def __init__(self, min_i=2, max_i=20):
+        self.min_i = min_i
+        self.max_i = max_i
+
+    def __call__(self, image, boxes=None, labels=None, angles=None):
+        h, w, _ = image.shape
+        center = np.random.randint(10, h-10), np.random.randint(10, w-10)
+        d_max = np.linalg.norm([h, w]) * np.random.randint(2, 20)
+
+        y, x = np.ogrid[:h, :w]
+        dist = np.sqrt((x - center[1])**2 + (y - center[0])**2)
+
+        img = image.astype(np.float32)
+        rate = (1 - dist / d_max)**2
+        rate = np.expand_dims(rate, 2)
+        rate = np.concatenate([rate, rate, rate], 2)
+        img *= rate
+        img = np.clip(img, 0, 255)
+        return img.astype(np.uint8), boxes, labels, angles
 
 class TRACEAugmentation(object):
     def __init__(self, size=512, mean=(104, 117, 123)):
@@ -301,7 +321,8 @@ class TRACEAugmentation(object):
         self.size = size
         if size > 1024:
             self.augment = Compose(
-                [
+                [   
+                    RandomLightDirect(2, 20),
                     ConvertFromInts(),
                     ToAbsoluteCoords(),
                     PhotometricDistort(),
@@ -314,6 +335,7 @@ class TRACEAugmentation(object):
         else:
             self.augment = Compose(
                 [
+                    RandomLightDirect(2, 20),
                     ConvertFromInts(),
                     ToAbsoluteCoords(),
                     PhotometricDistort(),
